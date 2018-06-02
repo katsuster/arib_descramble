@@ -11,6 +11,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <functional>
+#include <deque>
+#include <map>
+#include <vector>
+
 #define SIZE_TS          188
 #define SIZE_TS_CHUNK    (188 * 7)
 
@@ -27,6 +32,8 @@ void usage(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+	std::deque<char> buf_ts;
+	std::deque<char> buf_sock;
 	const char *fname, *hostname, *servname, *dumpname;
 	int fd, sock, fd_dump;
 	int port;
@@ -109,12 +116,38 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		//Send TS
-		sendto(sock, buf, rsize, 0,
-			(struct sockaddr *)&saddr, sizeof(saddr));
+		//Search next sync byte of TS
+		buf_ts.insert(buf_ts.end(), &buf[0], &buf[rsize]);
+		while (buf_ts.size() > 0) {
+			if (buf_ts.front() == 0x47)
+				break;
+			buf_ts.pop_front();
+		}
 
-		if (fd_dump != -1)
-			write(fd_dump, buf, rsize);
+		while (buf_ts.size() >= SIZE_TS) {
+			buf_sock.insert(buf_sock.end(), buf_ts.begin(),
+				buf_ts.begin() + SIZE_TS);
+
+			buf_ts.erase(buf_ts.begin(),
+				buf_ts.begin() + SIZE_TS);
+		}
+
+		//Send TS
+		while (buf_sock.size() >= SIZE_TS_CHUNK) {
+			uint8_t tmp[SIZE_TS_CHUNK];
+
+			for (int i = 0; i < SIZE_TS_CHUNK; i++)
+				tmp[i] = buf_sock[i];
+
+			sendto(sock, tmp, SIZE_TS_CHUNK, 0,
+				(struct sockaddr *)&saddr, sizeof(saddr));
+
+			if (fd_dump != -1)
+				write(fd_dump, tmp, SIZE_TS_CHUNK);
+
+			buf_sock.erase(buf_sock.begin(),
+				buf_sock.begin() + SIZE_TS_CHUNK);
+		}
 
 		cnt += rsize;
 
