@@ -17,11 +17,46 @@
 #include <vector>
 
 #include "packet_ts.hpp"
+#include "psi_pat.hpp"
 
 #define SIZE_TS          188
 #define SIZE_TS_CHUNK    (188 * 7)
 
+struct context;
+typedef std::function<int(context&, payload_ts&)> func_payload;
+
+int proc_pat(context& c, payload_ts& pay);
+
 struct context {
+	void reset_ts_filter()
+	{
+		map_filter.clear();
+
+		map_filter.insert(std::make_pair(0, proc_pat));
+	}
+
+	void add_ts_filter(uint32_t pid, func_payload f)
+	{
+		map_filter.insert(std::make_pair(pid, f));
+	}
+
+	void remove_ts_filter(uint32_t pid)
+	{
+		map_filter.erase(pid);
+	}
+
+	void add_pmt_filters_by_pat(psi_pat& pat)
+	{
+	}
+
+	void remove_pmt_filters_by_pat(psi_pat& pat)
+	{
+	}
+
+public:
+	std::map<uint32_t, func_payload> map_filter;
+	payload_ts payloads[0x2000];
+	psi_pat last_pat;
 };
 
 void usage(int argc, char *argv[])
@@ -38,6 +73,49 @@ int proc_ts(context& c, packet_ts& ts)
 {
 	if (ts.is_error())
 		return 0;
+
+	auto it = c.map_filter.find(ts.pid);
+	if (it == c.map_filter.end())
+		return 0;
+
+	payload_ts& p = c.payloads[ts.pid];
+
+	p.add_ts(ts);
+
+	if (!p.is_valid() || !ts.payload_unit_start_indicator)
+		return 0;
+	if (p.get_payload().size() == 0)
+		return 0;
+
+	it->second(c, p);
+
+	return 0;
+}
+
+int proc_pat(context& c, payload_ts& pay)
+{
+	auto buf = pay.get_payload();
+	bitstream<std::vector<uint8_t>::iterator> bs(buf.begin(), 0, buf.size());
+	psi_pat& last_pat = c.last_pat;
+	psi_pat pat;
+
+	pat.read(bs);
+	if (pat.is_error()) {
+		pat.print_error(stderr);
+		return 0;
+	}
+
+	if (last_pat.version_number == pat.version_number)
+		return 0;
+
+	c.remove_pmt_filters_by_pat(last_pat);
+
+	printf("PAT ver.%2d\n", pat.version_number);
+	last_pat = pat;
+
+	c.add_pmt_filters_by_pat(pat);
+
+	//pat.dump();
 
 	return 0;
 }
@@ -124,6 +202,8 @@ int main(int argc, char *argv[])
 	saddr.sin_family = AF_INET;
 	saddr.sin_port = htons(port);
 	saddr.sin_addr.s_addr = inet_addr(hostname);
+
+	c.reset_ts_filter();
 
 	cnt = 0;
 	i = 0;
