@@ -16,8 +16,13 @@
 #include <map>
 #include <vector>
 
+#include "packet_ts.hpp"
+
 #define SIZE_TS          188
 #define SIZE_TS_CHUNK    (188 * 7)
+
+struct context {
+};
 
 void usage(int argc, char *argv[])
 {
@@ -29,6 +34,23 @@ void usage(int argc, char *argv[])
 		argv[0]);
 }
 
+int proc_ts(context& c, packet_ts& ts)
+{
+	if (ts.is_error())
+		return 0;
+
+	return 0;
+}
+
+int descramble_ts(context& c, packet_ts& ts)
+{
+	if (ts.is_error())
+		return 0;
+	if ((ts.transport_scrambling_control & 2) == 0)
+		return 0;
+
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -43,6 +65,7 @@ int main(int argc, char *argv[])
 	ssize_t rsize;
 	size_t cnt;
 	int i;
+	static struct context c;
 
 	if (argc < 4) {
 		usage(argc, argv);
@@ -125,8 +148,19 @@ int main(int argc, char *argv[])
 		}
 
 		while (buf_ts.size() >= SIZE_TS) {
-			buf_sock.insert(buf_sock.end(), buf_ts.begin(),
-				buf_ts.begin() + SIZE_TS);
+			bitstream<std::deque<char>::iterator> bs(buf_ts.begin(),
+				0, SIZE_TS);
+			packet_ts ts;
+
+			ts.peek(bs);
+			if (ts.pid != 0x1fff) {
+				proc_ts(c, ts);
+				descramble_ts(c, ts);
+				ts.poke(bs);
+
+				buf_sock.insert(buf_sock.end(), buf_ts.begin(),
+					buf_ts.begin() + SIZE_TS);
+			}
 
 			buf_ts.erase(buf_ts.begin(),
 				buf_ts.begin() + SIZE_TS);
