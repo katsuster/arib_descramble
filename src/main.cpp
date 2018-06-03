@@ -20,6 +20,9 @@
 #include "psi_pat.hpp"
 #include "psi_pmt.hpp"
 #include "psi_ecm.hpp"
+#include "smart_card.hpp"
+#include "cardres_int.hpp"
+#include "cardres_ecm.hpp"
 
 #define SIZE_TS          188
 #define SIZE_TS_CHUNK    (188 * 7)
@@ -59,7 +62,7 @@ struct context {
 				e.program_number, e.program_number,
 				e.program_map_id);
 			add_pmt_filter(e.program_map_id);
-                }
+		}
 	}
 
 	void remove_pmt_filters_by_pat(psi_pat& pat)
@@ -132,6 +135,10 @@ public:
 	psi_pmt last_pmt[0x2000];
 	psi_ecm last_ecm[0x2000];
 	uint32_t es_ecm[0x2000];
+	cardres_ecm last_res_ecm[0x2000];
+
+	smart_card_reader scrd;
+	smart_card sc;
 };
 
 void usage(int argc, char *argv[])
@@ -265,6 +272,9 @@ int proc_ecm(context& c, payload_ts& pay)
 	bitstream<std::vector<uint8_t>::iterator> bs(buf.begin(), 0, buf.size());
 	psi_ecm& last_ecm = c.last_ecm[ts.pid];
 	psi_ecm ecm;
+	cardres_ecm& last_res_ecm = c.last_res_ecm[ts.pid];
+	cardres_ecm res_ecm;
+	int ret;
 
 	ecm.read(bs);
 	if (ecm.is_error()) {
@@ -278,6 +288,52 @@ int proc_ecm(context& c, payload_ts& pay)
 	printf("  ECM ver.%2d pid:0x%04x\n", ecm.version_number,
 		ts.pid);
 	last_ecm = ecm;
+
+	if (!c.sc.is_valid()) {
+		ret = c.sc.connect(0);
+		if (ret) {
+			c.scrd.release();
+			c.scrd.establish();
+			c.scrd.enumerate_readers();
+			c.scrd.dump();
+		}
+
+		c.sc.connect(0);
+	}
+
+	if (c.sc.is_valid()) {
+		size_t len_sc_ecm = ecm.body.size() + 5 + 1;
+		uint8_t sc_ecm[512] = {
+			//CLA
+			0x90,
+			//INS
+			0x34,
+			//param 1, 2
+			0x00, 0x00,
+		};
+		uint8_t sc_ecm_recv[512];
+		size_t nrecv = sizeof(sc_ecm_recv);
+
+		//cmd length, encrypted ECM
+		sc_ecm[4] = ecm.body.size();
+		for (size_t i = 0; i < ecm.body.size(); i++)
+			sc_ecm[5 + i] = ecm.body[i];
+
+		//res length
+		sc_ecm[5 + ecm.body.size()] = 0x00;
+
+		ret = c.sc.transmit(sc_ecm, len_sc_ecm, sc_ecm_recv, &nrecv);
+		//printf("body:%d, nrecv:%d\n", (int)len_sc_ecm, (int)nrecv);
+
+		if (!ret) {
+			bitstream<uint8_t *> bs_ecm(sc_ecm_recv, 0, nrecv);
+
+			res_ecm.read(bs_ecm);
+
+			last_res_ecm = res_ecm;
+			//res_ecm.dump();
+		}
+	}
 
 	for (int i = 0; i < 0x2000; i++) {
 		if (c.es_ecm[i] != ts.pid)
@@ -316,6 +372,41 @@ int main(int argc, char *argv[])
 	size_t cnt;
 	int i;
 	static struct context c;
+
+	////
+
+	//get initialize vector
+	c.scrd.enumerate_readers();
+	c.scrd.dump();
+
+	c.sc.set_reader(c.scrd);
+	c.sc.connect(0);
+
+	uint8_t sc_init[] = {
+		//CLA
+		0x90,
+		//INS
+		0x30,
+		//param 1, 2
+		0x00, 0x00,
+		//length
+		0x00,
+	};
+	uint8_t sc_init_recv[80];
+	size_t nrecv = sizeof(sc_init_recv);
+
+	c.sc.transmit(sc_init, sizeof(sc_init), sc_init_recv, &nrecv);
+	printf("nrecv:%d\n", (int)nrecv);
+
+	bitstream<uint8_t *> bs(sc_init_recv, 0, nrecv);
+	cardres_int crint;
+
+	crint.read(bs);
+
+	crint.dump();
+
+	////
+
 
 	if (argc < 4) {
 		usage(argc, argv);
