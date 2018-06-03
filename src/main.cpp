@@ -19,6 +19,7 @@
 #include "packet_ts.hpp"
 #include "psi_pat.hpp"
 #include "psi_pmt.hpp"
+#include "psi_ecm.hpp"
 
 #define SIZE_TS          188
 #define SIZE_TS_CHUNK    (188 * 7)
@@ -28,6 +29,7 @@ typedef std::function<int(context&, payload_ts&)> func_payload;
 
 int proc_pat(context& c, payload_ts& pay);
 int proc_pmt(context& c, payload_ts& pay);
+int proc_ecm(context& c, payload_ts& pay);
 
 struct context {
 	void reset_ts_filter()
@@ -87,10 +89,40 @@ struct context {
 
 	void add_ecm_filters_by_pmt(psi_pmt& pmt)
 	{
+		for (auto& e : pmt.descs) {
+			if (e->descriptor_tag != DESC_CA)
+				continue;
+
+			desc_ca& dsc = dynamic_cast<desc_ca&>(*e);
+
+			printf("  --ECM pid:0x%04x\n", dsc.ca_pid);
+			add_ecm_filter(dsc.ca_pid);
+		}
 	}
 
 	void remove_ecm_filters_by_pmt(psi_pmt& pmt)
 	{
+		for (auto& e : pmt.descs) {
+			if (e->descriptor_tag != DESC_CA)
+				continue;
+
+			desc_ca& dsc = dynamic_cast<desc_ca&>(*e);
+
+			remove_ecm_filter(dsc.ca_pid);
+		}
+		pmt.descs.clear();
+	}
+
+	void add_ecm_filter(uint32_t pid)
+	{
+		last_ecm[pid].version_number = -1;
+
+		add_ts_filter(pid, proc_ecm);
+	}
+
+	void remove_ecm_filter(uint32_t pid)
+	{
+		remove_ts_filter(pid);
 	}
 
 public:
@@ -98,6 +130,8 @@ public:
 	payload_ts payloads[0x2000];
 	psi_pat last_pat;
 	psi_pmt last_pmt[0x2000];
+	psi_ecm last_ecm[0x2000];
+	uint32_t es_ecm[0x2000];
 };
 
 void usage(int argc, char *argv[])
@@ -187,8 +221,73 @@ int proc_pmt(context& c, payload_ts& pay)
 	c.add_ecm_filters_by_pmt(pmt);
 
 	//Register new ES
+	uint32_t default_ecm = 0x1fff;
+
+	for (auto& e : pmt.descs) {
+		if (e->descriptor_tag != DESC_CA)
+			continue;
+
+		desc_ca& dsc = dynamic_cast<desc_ca&>(*e);
+
+		default_ecm = dsc.ca_pid;
+	}
+
+	for (auto& e : pmt.esinfos) {
+		c.es_ecm[e.elementary_pid] = 0x1fff;
+
+		if (default_ecm != 0x1fff)
+			c.es_ecm[e.elementary_pid] = default_ecm;
+
+		for (auto& e_es : e.descs) {
+			if (e_es->descriptor_tag != DESC_CA)
+				continue;
+
+			desc_ca& dsc_es = dynamic_cast<desc_ca&>(*e_es);
+
+			if (dsc_es.ca_pid != 0x1fff)
+				c.es_ecm[e.elementary_pid] = dsc_es.ca_pid;
+		}
+
+		printf("  --ES type:0x%04x pid:0x%04x ecm:0x%04x\n",
+			e.stream_type, e.elementary_pid,
+			c.es_ecm[e.elementary_pid]);
+	}
 
 	//pmt.dump();
+
+	return 0;
+}
+
+int proc_ecm(context& c, payload_ts& pay)
+{
+	auto buf = pay.get_payload();
+	packet_ts& ts = pay.get_first_ts();
+	bitstream<std::vector<uint8_t>::iterator> bs(buf.begin(), 0, buf.size());
+	psi_ecm& last_ecm = c.last_ecm[ts.pid];
+	psi_ecm ecm;
+
+	ecm.read(bs);
+	if (ecm.is_error()) {
+		ecm.print_error(stderr);
+		return 0;
+	}
+
+	if (last_ecm.version_number == ecm.version_number)
+		return 0;
+
+	printf("  ECM ver.%2d pid:0x%04x\n", ecm.version_number,
+		ts.pid);
+	last_ecm = ecm;
+
+	for (int i = 0; i < 0x2000; i++) {
+		if (c.es_ecm[i] != ts.pid)
+			continue;
+
+		//printf("  --ES change key pid:0x%04x ecm:0x%04x\n",
+		//	i, c.es_ecm[i]);
+	}
+
+	//ecm.dump();
 
 	return 0;
 }
