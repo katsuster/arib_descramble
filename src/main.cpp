@@ -18,6 +18,7 @@
 
 #include "packet_ts.hpp"
 #include "psi_pat.hpp"
+#include "psi_pmt.hpp"
 
 #define SIZE_TS          188
 #define SIZE_TS_CHUNK    (188 * 7)
@@ -26,6 +27,7 @@ struct context;
 typedef std::function<int(context&, payload_ts&)> func_payload;
 
 int proc_pat(context& c, payload_ts& pay);
+int proc_pmt(context& c, payload_ts& pay);
 
 struct context {
 	void reset_ts_filter()
@@ -47,9 +49,47 @@ struct context {
 
 	void add_pmt_filters_by_pat(psi_pat& pat)
 	{
+		for (auto& e : pat.progs) {
+			if (e.program_number == 0)
+				continue;
+
+			printf("--PMT prg:%5d(0x%04x) pid:0x%04x\n",
+				e.program_number, e.program_number,
+				e.program_map_id);
+			add_pmt_filter(e.program_map_id);
+                }
 	}
 
 	void remove_pmt_filters_by_pat(psi_pat& pat)
+	{
+		for (auto& e : pat.progs) {
+			if (e.program_number == 0)
+				continue;
+
+			remove_pmt_filter(e.program_map_id);
+		}
+		pat.progs.clear();
+	}
+
+	void add_pmt_filter(uint32_t pid)
+	{
+		last_pmt[pid].version_number = -1;
+
+		add_ts_filter(pid, proc_pmt);
+	}
+
+	void remove_pmt_filter(uint32_t pid)
+	{
+		remove_ts_filter(pid);
+
+		remove_ecm_filters_by_pmt(last_pmt[pid]);
+	}
+
+	void add_ecm_filters_by_pmt(psi_pmt& pmt)
+	{
+	}
+
+	void remove_ecm_filters_by_pmt(psi_pmt& pmt)
 	{
 	}
 
@@ -57,6 +97,7 @@ public:
 	std::map<uint32_t, func_payload> map_filter;
 	payload_ts payloads[0x2000];
 	psi_pat last_pat;
+	psi_pmt last_pmt[0x2000];
 };
 
 void usage(int argc, char *argv[])
@@ -116,6 +157,38 @@ int proc_pat(context& c, payload_ts& pay)
 	c.add_pmt_filters_by_pat(pat);
 
 	//pat.dump();
+
+	return 0;
+}
+
+int proc_pmt(context& c, payload_ts& pay)
+{
+	auto buf = pay.get_payload();
+	packet_ts& ts = pay.get_first_ts();
+	bitstream<std::vector<uint8_t>::iterator> bs(buf.begin(), 0, buf.size());
+	psi_pmt& last_pmt = c.last_pmt[ts.pid];
+	psi_pmt pmt;
+
+	pmt.read(bs);
+	if (pmt.is_error()) {
+		pmt.print_error(stderr);
+		return 0;
+	}
+
+	if (last_pmt.version_number == pmt.version_number)
+		return 0;
+
+	c.remove_ecm_filters_by_pmt(last_pmt);
+
+	printf("  PMT ver.%2d prg:%5d(0x%04x) pid:0x%04x\n", pmt.version_number,
+		pmt.program_number, pmt.program_number, ts.pid);
+	last_pmt = pmt;
+
+	c.add_ecm_filters_by_pmt(pmt);
+
+	//Register new ES
+
+	//pmt.dump();
 
 	return 0;
 }
