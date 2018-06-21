@@ -157,7 +157,7 @@ struct context {
 
 	void init_descrambler()
 	{
-		if (valid_descrambler)
+		if (!sc.is_valid() || valid_descrambler)
 			return;
 
 		uint8_t sc_init[] = {
