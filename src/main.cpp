@@ -416,10 +416,6 @@ int descramble_ts(context& c, packet_ts& ts)
 		return 0;
 	if ((ts.transport_scrambling_control & 2) == 0)
 		return 0;
-	if (!c.descrambler[ts.pid].is_valid_odd())
-		return 0;
-	if (!c.descrambler[ts.pid].is_valid_even())
-		return 0;
 
 	c.descrambler[ts.pid].descramble(ts);
 
