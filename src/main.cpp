@@ -129,6 +129,70 @@ struct context {
 		remove_ts_filter(pid);
 	}
 
+	void init_smartcard()
+	{
+		int ret;
+
+		if (sc.is_valid())
+			return;
+
+		valid_descrambler = 0;
+
+		ret = sc.connect(0);
+		if (ret) {
+			scrd.release();
+			scrd.establish();
+			scrd.enumerate_readers();
+			scrd.dump();
+		} else {
+			//success
+			return;
+		}
+
+		sc.set_reader(scrd);
+		ret = sc.connect(0);
+		if (ret)
+			fprintf(stderr, "Cannot get smart card.\n");
+	}
+
+	void init_descrambler()
+	{
+		if (valid_descrambler)
+			return;
+
+		uint8_t sc_init[] = {
+			//CLA, INS
+			0x90, 0x30,
+			//param 1, 2, length
+			0x00, 0x00, 0x00,
+		};
+		uint8_t sc_init_recv[80];
+		size_t nrecv = sizeof(sc_init_recv);
+		uint8_t *key;
+		uint64_t iv;
+
+		sc.transmit(sc_init, sizeof(sc_init), sc_init_recv, &nrecv);
+		if (nrecv == 0) {
+			fprintf(stderr, "Cannot get initialize vector.\n");
+			return;
+		}
+
+		bitstream<uint8_t *> bs(sc_init_recv, 0, nrecv);
+		cardres_int crint;
+
+		crint.read(bs);
+		key = crint.descrambling_system_key;
+		iv = crint.descrambler_cbc_initial_value;
+
+		for (int i = 0; i < 0x2000; i++) {
+			descrambler[i].set_system_key(key);
+			descrambler[i].set_init_vector(iv);
+		}
+		valid_descrambler = 1;
+
+		crint.dump();
+	}
+
 public:
 	std::map<uint32_t, func_payload> map_filter;
 	payload_ts payloads[0x2000];
@@ -142,6 +206,7 @@ public:
 	smart_card sc;
 
 	descrambler_ts descrambler[0x2000];
+	int valid_descrambler;
 };
 
 void usage(int argc, char *argv[])
@@ -292,17 +357,8 @@ int proc_ecm(context& c, payload_ts& pay)
 		ts.pid);
 	last_ecm = ecm;
 
-	if (!c.sc.is_valid()) {
-		ret = c.sc.connect(0);
-		if (ret) {
-			c.scrd.release();
-			c.scrd.establish();
-			c.scrd.enumerate_readers();
-			c.scrd.dump();
-		}
-
-		c.sc.connect(0);
-	}
+	c.init_smartcard();
+	c.init_descrambler();
 
 	if (c.sc.is_valid()) {
 		size_t len_sc_ecm = ecm.body.size() + 5 + 1;
@@ -384,46 +440,6 @@ int main(int argc, char *argv[])
 	size_t cnt;
 	int i;
 	static struct context c;
-
-	////
-
-	//get initialize vector
-	c.scrd.enumerate_readers();
-	c.scrd.dump();
-
-	c.sc.set_reader(c.scrd);
-	c.sc.connect(0);
-
-	uint8_t sc_init[] = {
-		//CLA
-		0x90,
-		//INS
-		0x30,
-		//param 1, 2
-		0x00, 0x00,
-		//length
-		0x00,
-	};
-	uint8_t sc_init_recv[80];
-	size_t nrecv = sizeof(sc_init_recv);
-
-	c.sc.transmit(sc_init, sizeof(sc_init), sc_init_recv, &nrecv);
-	printf("nrecv:%d\n", (int)nrecv);
-
-	bitstream<uint8_t *> bs(sc_init_recv, 0, nrecv);
-	cardres_int crint;
-
-	crint.read(bs);
-
-	for (i = 0; i < 0x2000; i++) {
-		c.descrambler[i].set_system_key(crint.descrambling_system_key);
-		c.descrambler[i].set_init_vector(crint.descrambler_cbc_initial_value);
-	}
-
-	crint.dump();
-
-	////
-
 
 	if (argc < 4) {
 		usage(argc, argv);
