@@ -8,8 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <netdb.h>
 
 #include <functional>
 #include <deque>
@@ -428,13 +427,13 @@ int main(int argc, char *argv[])
 	std::deque<char> buf_sock;
 	const char *fname, *hostname, *servname, *dumpname;
 	int fd, sock, fd_dump;
-	int port;
 	size_t bufsize;
 	char *buf;
-	struct sockaddr_in saddr;
+	struct addrinfo hints;
+	struct addrinfo *resaddr, *rp;
 	ssize_t rsize;
 	size_t cnt;
-	int i;
+	int i, result;
 	static struct context c;
 
 	if (argc < 4) {
@@ -451,7 +450,6 @@ int main(int argc, char *argv[])
 		dumpname = NULL;
 
 	bufsize = SIZE_TS_CHUNK;
-	port = atoi(argv[3]);
 
 	if (strcmp(fname, "-") == 0) {
 		fd = 0;
@@ -483,17 +481,27 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;
+	result = getaddrinfo(hostname, servname, &hints, &resaddr);
+	if (result) {
+		perror("getaddrinfo");
+		fprintf(stderr, "Failed to resolve '%s:%s'\n",
+			hostname, servname);
+		return -1;
+	}
+	rp = resaddr;
+
+	sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 	if (sock == -1) {
 		perror("socket(INET, DGRAM)");
 		fprintf(stderr, "Failed to connect '%s:%s'\n",
 			hostname, servname);
 		return -1;
 	}
-
-	saddr.sin_family = AF_INET;
-	saddr.sin_port = htons(port);
-	saddr.sin_addr.s_addr = inet_addr(hostname);
 
 	c.reset_ts_filter();
 
@@ -546,7 +554,7 @@ int main(int argc, char *argv[])
 				tmp[i] = buf_sock[i];
 
 			sendto(sock, tmp, SIZE_TS_CHUNK, 0,
-				(struct sockaddr *)&saddr, sizeof(saddr));
+				rp->ai_addr, rp->ai_addrlen);
 
 			if (fd_dump != -1)
 				write(fd_dump, tmp, SIZE_TS_CHUNK);
@@ -565,6 +573,7 @@ int main(int argc, char *argv[])
 		i++;
 	}
 
+	freeaddrinfo(resaddr);
 	free(buf);
 	close(sock);
 	close(fd);
