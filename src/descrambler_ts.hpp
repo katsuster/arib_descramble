@@ -134,7 +134,8 @@ public:
 	void descramble(packet_ts& ts)
 	{
 		uint8_t work_reg[DATA_BLK_SIZE];
-		uint8_t work_out[DATA_BLK_SIZE];
+		uint8_t work_out[DATA_BLK_SIZE * 4];
+		uint64_t *wo = (uint64_t *)work_out, *wr = (uint64_t *)work_reg;
 		uint8_t key[ALL_KEY_SIZE];
 		size_t pos, len;
 
@@ -158,16 +159,25 @@ public:
 
 		//CBC mode
 		while (len >= DATA_BLK_SIZE) {
-			dec.update(ts.payload, pos, work_out, 0);
+			uint64_t *pay = (uint64_t *)&ts.payload[pos];
+			size_t rem;
 
-			for (int i = 0; i < DATA_BLK_SIZE; i++)
-				work_out[i] ^= work_reg[i];
+			if (len >= DATA_BLK_SIZE * 4) {
+				dec.update4(ts.payload, pos, work_out, 0);
+				rem = 4;
+			} else {
+				dec.update(ts.payload, pos, work_out, 0);
+				rem = 1;
+			}
 
-			memcpy(work_reg, &ts.payload[pos], DATA_BLK_SIZE);
-			memcpy(&ts.payload[pos], work_out, DATA_BLK_SIZE);
+			for (size_t ind = 0; ind < rem; ind++) {
+				wo[ind] ^= *wr;
+				*wr = pay[ind];
+				pay[ind] = wo[ind];
 
-			pos += DATA_BLK_SIZE;
-			len -= DATA_BLK_SIZE;
+				pos += DATA_BLK_SIZE;
+				len -= DATA_BLK_SIZE;
+			}
 		}
 
 		//OFB mode
