@@ -210,11 +210,12 @@ public:
 
 void usage(int argc, char *argv[])
 {
-	fprintf(stderr, "usage: %s input address port [output]\n\n"
+	fprintf(stderr, "usage: %s input "
+			"[output | address port | address port output]\n\n"
 		"  input : Input file name, '-' means stdin\n"
+		"  output: Output file name, '-' means stdout.\n"
 		"  host  : Destination address\n"
-		"  port  : Destination port\n"
-		"  output: Output file name.\n",
+		"  port  : Destination port\n",
 		argv[0]);
 }
 
@@ -425,8 +426,8 @@ int main(int argc, char *argv[])
 {
 	std::deque<char> buf_ts;
 	std::deque<char> buf_sock;
-	const char *fname, *hostname, *servname, *dumpname;
-	int fd, sock, fd_dump;
+	const char *name_in, *name_out, *hostname, *servname;
+	int fd_in, fd_out, sock;
 	size_t bufsize;
 	char *buf;
 	struct addrinfo hints;
@@ -436,70 +437,84 @@ int main(int argc, char *argv[])
 	int i, result;
 	static struct context c;
 
-	if (argc < 4) {
+	if (argc < 3) {
 		usage(argc, argv);
 		return -1;
 	}
 
-	fname = argv[1];
-	hostname = argv[2];
-	servname = argv[3];
-	if (argc >= 4)
-		dumpname = argv[4];
-	else
-		dumpname = NULL;
+	name_in = argv[1];
+	if (argc == 3) {
+		hostname = NULL;
+		servname = NULL;
+		name_out = argv[2];
+	} else if (argc == 4) {
+		hostname = argv[2];
+		servname = argv[3];
+		name_out = NULL;
+	} else if (argc >= 5) {
+		hostname = argv[2];
+		servname = argv[3];
+		name_out = argv[4];
+	}
 
 	bufsize = SIZE_TS_CHUNK;
 
-	if (strcmp(fname, "-") == 0) {
-		fd = 0;
+	if (strcmp(name_in, "-") == 0) {
+		fd_in = 0;
 	} else {
-		fd = open(fname, O_RDONLY);
-		if (fd == -1) {
-			perror("open");
+		fd_in = open(name_in, O_RDONLY);
+		if (fd_in == -1) {
+			perror("open(in)");
 			fprintf(stderr, "Failed to open '%s'\n",
-				fname);
+				name_in);
 			return -1;
 		}
 	}
 
-	if (dumpname) {
-		fd_dump = open(dumpname, O_RDWR | O_CREAT, 0644);
-		if (fd_dump == -1) {
-			perror("open(dump)");
+	if (name_out && strcmp(name_out, "-") == 0) {
+		fd_out = 1;
+	} else if (name_out) {
+		fd_out = open(name_out, O_RDWR | O_CREAT, 0644);
+		if (fd_out == -1) {
+			perror("open(out)");
 			fprintf(stderr, "Failed to open '%s'\n",
-				dumpname);
+				name_out);
 			return -1;
 		}
 	} else {
-		fd_dump = -1;
+		fd_out = -1;
+	}
+
+	if (hostname && servname) {
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_DGRAM;
+		hints.ai_flags = 0;
+		hints.ai_protocol = 0;
+		result = getaddrinfo(hostname, servname, &hints, &resaddr);
+		if (result) {
+			perror("getaddrinfo");
+			fprintf(stderr, "Failed to resolve '%s:%s'\n",
+				hostname, servname);
+			return -1;
+		}
+		rp = resaddr;
+
+		sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+		if (sock == -1) {
+			perror("socket(INET, DGRAM)");
+			fprintf(stderr, "Failed to connect '%s:%s'\n",
+				hostname, servname);
+			return -1;
+		}
+	} else {
+		sock = -1;
+		rp = NULL;
 	}
 
 	buf = (char *)malloc(bufsize);
 	if (!buf) {
 		perror("malloc");
-		return -1;
-	}
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = 0;
-	hints.ai_protocol = 0;
-	result = getaddrinfo(hostname, servname, &hints, &resaddr);
-	if (result) {
-		perror("getaddrinfo");
-		fprintf(stderr, "Failed to resolve '%s:%s'\n",
-			hostname, servname);
-		return -1;
-	}
-	rp = resaddr;
-
-	sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-	if (sock == -1) {
-		perror("socket(INET, DGRAM)");
-		fprintf(stderr, "Failed to connect '%s:%s'\n",
-			hostname, servname);
 		return -1;
 	}
 
@@ -509,10 +524,10 @@ int main(int argc, char *argv[])
 	i = 0;
 	printf("\n\n");
 	while (1) {
-		rsize = read(fd, buf, bufsize);
+		rsize = read(fd_in, buf, bufsize);
 		if (rsize == -1) {
 			fprintf(stderr, "Failed to read '%s'\n",
-				fname);
+				name_in);
 			break;
 		} else if (rsize == 0) {
 			//EOF
@@ -553,11 +568,12 @@ int main(int argc, char *argv[])
 			for (int i = 0; i < SIZE_TS_CHUNK; i++)
 				tmp[i] = buf_sock[i];
 
-			sendto(sock, tmp, SIZE_TS_CHUNK, 0,
-				rp->ai_addr, rp->ai_addrlen);
+			if (sock != -1)
+				sendto(sock, tmp, SIZE_TS_CHUNK, 0,
+					rp->ai_addr, rp->ai_addrlen);
 
-			if (fd_dump != -1)
-				write(fd_dump, tmp, SIZE_TS_CHUNK);
+			if (fd_out != -1)
+				write(fd_out, tmp, SIZE_TS_CHUNK);
 
 			buf_sock.erase(buf_sock.begin(),
 				buf_sock.begin() + SIZE_TS_CHUNK);
@@ -575,10 +591,12 @@ int main(int argc, char *argv[])
 
 	freeaddrinfo(resaddr);
 	free(buf);
-	close(sock);
-	close(fd);
-	if (fd_dump != -1)
-		close(fd_dump);
+	if (sock != -1)
+		close(sock);
+	if (fd_in != 0 && fd_in != -1)
+		close(fd_in);
+	if (fd_out != 1 && fd_out != -1)
+		close(fd_out);
 
 	return 0;
 }

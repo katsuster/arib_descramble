@@ -25,7 +25,7 @@ Example of scenario as follows:
     
     Descramble it
     
-    # arib_descramble /dev/dvb/adapter0/dvr0 hostip hostport
+    # arib_descramble /dev/dvb/adapter0/dvr0 hostname portname
     PAT ver. 1
     --PMT prg:  103(0x0067) pid:0x01f0
     --PMT prg:  104(0x0068) pid:0x02f0
