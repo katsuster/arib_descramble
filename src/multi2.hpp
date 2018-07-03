@@ -47,6 +47,9 @@ public:
 	 */
 	void init(int dec, uint8_t *key, size_t key_len)
 	{
+		uint32_t intermed0[9], intermed1[9];
+		uint32_t work[2];
+
 		if (key_len < ALL_KEY_SIZE) {
 			printf("key_len too small, len:%d\n", (int)key_len);
 			return;
@@ -56,7 +59,7 @@ public:
 
 		//read data key (64bits)
 		//[0] left, [1] right
-		read_key(key, 0, DATA_KEY_SIZE, cipher, 0);
+		read_key(key, 0, DATA_KEY_SIZE, work, 0);
 
 		//read system key
 		//[0] left, [7] right
@@ -72,17 +75,17 @@ public:
 			workkey, 0);
 
 		//create workkey
-		mlt2_keyschedule();
+		mlt2_keyschedule(workkey, work, intermed0, intermed1);
 
 		//set workkey
-		workkey[0] = intermed[1][0];
-		workkey[1] = intermed[2][1];
-		workkey[2] = intermed[3][0];
-		workkey[3] = intermed[4][1];
-		workkey[4] = intermed[5][0];
-		workkey[5] = intermed[6][1];
-		workkey[6] = intermed[7][0];
-		workkey[7] = intermed[8][1];
+		workkey[0] = intermed0[1];
+		workkey[1] = intermed1[2];
+		workkey[2] = intermed0[3];
+		workkey[3] = intermed1[4];
+		workkey[4] = intermed0[5];
+		workkey[5] = intermed1[6];
+		workkey[6] = intermed0[7];
+		workkey[7] = intermed1[8];
 	}
 
 	void update(uint8_t *buf_in, int offs_in, uint8_t *buf_out, size_t offs_out)
@@ -114,28 +117,16 @@ public:
 	}
 
 protected:
-	void decrypt_block(uint32_t blocks[])
+	void decrypt_block(uint32_t *blocks)
 	{
-		cipher[0] = blocks[0];
-		cipher[1] = blocks[1];
-
 		for (int i = 0; i < round; i += 8)
-			mlt2_dec8round();
-
-		blocks[0] = cipher[0];
-		blocks[1] = cipher[1];
+			mlt2_dec8round(workkey, blocks);
 	}
 
-	void encrypt_block(uint32_t blocks[])
+	void encrypt_block(uint32_t *blocks)
 	{
-		cipher[0] = blocks[0];
-		cipher[1] = blocks[1];
-
 		for (int i = 0; i < round; i += 8)
-			mlt2_enc8round();
-
-		blocks[0] = cipher[0];
-		blocks[1] = cipher[1];
+			mlt2_enc8round(workkey, blocks);
 	}
 
 	void read_key(uint8_t *key, size_t key_offset, size_t key_len,
@@ -150,166 +141,154 @@ protected:
 		}
 	}
 
-	void mlt2_keyschedule()
+	void mlt2_keyschedule(uint32_t *key, uint32_t *work, uint32_t *it0, uint32_t *it1)
 	{
-		//round 1 to 4
-		partkey[0] = workkey[0];
-		partkey[1] = workkey[1];
-		partkey[2] = workkey[2];
-		partkey[3] = workkey[3];
-
-		mlt2_pi1();
-		intermed[0][0] = cipher[0];
-		intermed[0][1] = cipher[1];
-
-		mlt2_pi2();
-		intermed[1][0] = cipher[0];
-		intermed[1][1] = cipher[1];
-
-		mlt2_pi3();
-		intermed[2][0] = cipher[0];
-		intermed[2][1] = cipher[1];
-
-		mlt2_pi4();
-		intermed[3][0] = cipher[0];
-		intermed[3][1] = cipher[1];
-
-		//round 5 to 8
-		partkey[0] = workkey[4];
-		partkey[1] = workkey[5];
-		partkey[2] = workkey[6];
-		partkey[3] = workkey[7];
-
-		mlt2_pi1();
-		intermed[4][0] = cipher[0];
-		intermed[4][1] = cipher[1];
-
-		mlt2_pi2();
-		intermed[5][0] = cipher[0];
-		intermed[5][1] = cipher[1];
-
-		mlt2_pi3();
-		intermed[6][0] = cipher[0];
-		intermed[6][1] = cipher[1];
-
-		mlt2_pi4();
-		intermed[7][0] = cipher[0];
-		intermed[7][1] = cipher[1];
-
-		mlt2_pi1();
-		intermed[8][0] = cipher[0];
-		intermed[8][1] = cipher[1];
-	}
-
-	void mlt2_dec8round()
-	{
-		//round 5 to 8
-		partkey[0] = workkey[4];
-		partkey[1] = workkey[5];
-		partkey[2] = workkey[6];
-		partkey[3] = workkey[7];
-
-		mlt2_pi4();
-		mlt2_pi3();
-		mlt2_pi2();
-		mlt2_pi1();
+		uint32_t *partkey;
 
 		//round 1 to 4
-		partkey[0] = workkey[0];
-		partkey[1] = workkey[1];
-		partkey[2] = workkey[2];
-		partkey[3] = workkey[3];
+		partkey = &key[0];
 
-		mlt2_pi4();
-		mlt2_pi3();
-		mlt2_pi2();
-		mlt2_pi1();
-	}
+		mlt2_pi1(partkey, work);
+		it0[0] = work[0];
+		it1[0] = work[1];
 
-	void mlt2_enc8round()
-	{
-		//round 1 to 4
-		partkey[0] = workkey[0];
-		partkey[1] = workkey[1];
-		partkey[2] = workkey[2];
-		partkey[3] = workkey[3];
+		mlt2_pi2(partkey, work);
+		it0[1] = work[0];
+		it1[1] = work[1];
 
-		mlt2_pi1();
-		mlt2_pi2();
-		mlt2_pi3();
-		mlt2_pi4();
+		mlt2_pi3(partkey, work);
+		it0[2] = work[0];
+		it1[2] = work[1];
+
+		mlt2_pi4(partkey, work);
+		it0[3] = work[0];
+		it1[3] = work[1];
 
 		//round 5 to 8
-		partkey[0] = workkey[4];
-		partkey[1] = workkey[5];
-		partkey[2] = workkey[6];
-		partkey[3] = workkey[7];
+		partkey = &key[4];
 
-		mlt2_pi1();
-		mlt2_pi2();
-		mlt2_pi3();
-		mlt2_pi4();
+		mlt2_pi1(partkey, work);
+		it0[4] = work[0];
+		it1[4] = work[1];
+
+		mlt2_pi2(partkey, work);
+		it0[5] = work[0];
+		it1[5] = work[1];
+
+		mlt2_pi3(partkey, work);
+		it0[6] = work[0];
+		it1[6] = work[1];
+
+		mlt2_pi4(partkey, work);
+		it0[7] = work[0];
+		it1[7] = work[1];
+
+		mlt2_pi1(partkey, work);
+		it0[8] = work[0];
+		it1[8] = work[1];
 	}
 
-	void mlt2_pi1()
+	void mlt2_dec8round(uint32_t *key, uint32_t *work)
+	{
+		uint32_t *partkey;
+
+		//round 5 to 8
+		partkey = &key[4];
+
+		mlt2_pi4(partkey, work);
+		mlt2_pi3(partkey, work);
+		mlt2_pi2(partkey, work);
+		mlt2_pi1(partkey, work);
+
+		//round 1 to 4
+		partkey = &key[0];
+
+		mlt2_pi4(partkey, work);
+		mlt2_pi3(partkey, work);
+		mlt2_pi2(partkey, work);
+		mlt2_pi1(partkey, work);
+	}
+
+	void mlt2_enc8round(uint32_t *key, uint32_t *work)
+	{
+		uint32_t *partkey;
+
+		//round 1 to 4
+		partkey = &key[0];
+
+		mlt2_pi1(partkey, work);
+		mlt2_pi2(partkey, work);
+		mlt2_pi3(partkey, work);
+		mlt2_pi4(partkey, work);
+
+		//round 5 to 8
+		partkey = &key[4];
+
+		mlt2_pi1(partkey, work);
+		mlt2_pi2(partkey, work);
+		mlt2_pi3(partkey, work);
+		mlt2_pi4(partkey, work);
+	}
+
+	void mlt2_pi1(uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 
-		out[0] = cipher[0];
-		out[1] = cipher[0] ^ cipher[1];
+		out[0] = work[0];
+		out[1] = work[0] ^ work[1];
 
-		cipher[0] = out[0];
-		cipher[1] = out[1];
+		work[0] = out[0];
+		work[1] = out[1];
 	}
 
-	void mlt2_pi2()
+	void mlt2_pi2(uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 		uint32_t x, y, z;
 
-		x = cipher[1];
+		x = work[1];
 		y = x + partkey[0];
 		z = mlt2_rotl(y, 1) + y - 1;
 
-		out[0] = cipher[0] ^ (mlt2_rotl(z, 4) ^ z);
-		out[1] = cipher[1];
+		out[0] = work[0] ^ mlt2_rotl(z, 4) ^ z;
+		out[1] = work[1];
 
-		cipher[0] = out[0];
-		cipher[1] = out[1];
+		work[0] = out[0];
+		work[1] = out[1];
 	}
 
-	void mlt2_pi3()
+	void mlt2_pi3(uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 		uint32_t x, y, z, a, b, c;
 
-		x = cipher[0];
+		x = work[0];
 		y = x + partkey[1];
 		z = mlt2_rotl(y, 2) + y + 1;
 		a = mlt2_rotl(z, 8) ^ z;
 		b = a + partkey[2];
 		c = mlt2_rotl(b, 1) - b;
 
-		out[0] = cipher[0];
-		out[1] = cipher[1] ^ (mlt2_rotl(c, 16) ^ (c | x));
+		out[0] = work[0];
+		out[1] = work[1] ^ (mlt2_rotl(c, 16) ^ (c | x));
 
-		cipher[0] = out[0];
-		cipher[1] = out[1];
+		work[0] = out[0];
+		work[1] = out[1];
 	}
 
-	void mlt2_pi4()
+	void mlt2_pi4(uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 		uint32_t x, y;
 
-		x = cipher[1];
+		x = work[1];
 		y = x + partkey[3];
 
-		out[0] = cipher[0] ^ (mlt2_rotl(y, 2) + y + 1);
-		out[1] = cipher[1];
+		out[0] = work[0] ^ (mlt2_rotl(y, 2) + y + 1);
+		out[1] = work[1];
 
-		cipher[0] = out[0];
-		cipher[1] = out[1];
+		work[0] = out[0];
+		work[1] = out[1];
 	}
 
 	uint32_t mlt2_rotl(uint32_t v, int n)
@@ -320,10 +299,7 @@ protected:
 private:
 	int round;
 	int decmode;
-	uint32_t cipher[2];
-	uint32_t intermed[9][2];
 	uint32_t workkey[8];
-	uint32_t partkey[4];
 };
 
 #endif //MULTI2_HPP__
