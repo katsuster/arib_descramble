@@ -8,6 +8,13 @@
 #include <string>
 
 #include "multi2.hpp"
+#include "multi2_sse2.hpp"
+
+#if defined(__SSE2__)
+#  define multi2_fast multi2_sse2
+#else
+#  define multi2_fast multi2
+#endif
 
 class descrambler_ts {
 public:
@@ -199,8 +206,8 @@ private:
 	uint8_t data_key_even[DATA_KEY_SIZE];
 	uint8_t init_vector[8];
 
-	multi2 dec;
-	multi2 enc;
+	multi2_fast dec;
+	multi2_fast enc;
 };
 
 #endif //DESCRAMBLER_TS_HPP__
