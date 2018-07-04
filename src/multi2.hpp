@@ -102,30 +102,20 @@ public:
 
 	void update(uint8_t *buf_in, int offs_in, uint8_t *buf_out, size_t offs_out)
 	{
+		uint32_t *in = (uint32_t *)&buf_in[offs_in];
+		uint32_t *out = (uint32_t *)&buf_out[offs_out];
 		uint32_t tmp[2];
 
-		tmp[0] = (buf_in[offs_in + 0] << 24) |
-			 (buf_in[offs_in + 1] << 16) |
-			 (buf_in[offs_in + 2] << 8) |
-			 (buf_in[offs_in + 3] << 0);
-		tmp[1] = (buf_in[offs_in + 4] << 24) |
-			 (buf_in[offs_in + 5] << 16) |
-			 (buf_in[offs_in + 6] << 8) |
-			 (buf_in[offs_in + 7] << 0);
+		tmp[0] = be32toh(in[0]);
+		tmp[1] = be32toh(in[1]);
 
 		if (decmode)
 			decrypt_block(tmp);
 		else
 			encrypt_block(tmp);
 
-		buf_out[offs_out + 0] = tmp[0] >> 24;
-		buf_out[offs_out + 1] = tmp[0] >> 16;
-		buf_out[offs_out + 2] = tmp[0] >> 8;
-		buf_out[offs_out + 3] = tmp[0] >> 0;
-		buf_out[offs_out + 4] = tmp[1] >> 24;
-		buf_out[offs_out + 5] = tmp[1] >> 16;
-		buf_out[offs_out + 6] = tmp[1] >> 8;
-		buf_out[offs_out + 7] = tmp[1] >> 0;
+		out[0] = htobe32(tmp[0]);
+		out[1] = htobe32(tmp[1]);
 	}
 
 protected:

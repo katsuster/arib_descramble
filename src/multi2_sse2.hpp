@@ -25,20 +25,14 @@ public:
 
 	void update4(uint8_t *buf_in, int offs_in, uint8_t *buf_out, size_t offs_out)
 	{
+		uint32_t *in = (uint32_t *)&buf_in[offs_in];
+		uint32_t *out = (uint32_t *)&buf_out[offs_out];
 		uint32_t tmp[8];
 		__m128i tmp_b[2];
 
 		for (int i = 0; i < 4; i++) {
-			tmp[0 + i] =
-				 (buf_in[offs_in + i * 8 + 0] << 24) |
-				 (buf_in[offs_in + i * 8 + 1] << 16) |
-				 (buf_in[offs_in + i * 8 + 2] << 8) |
-				 (buf_in[offs_in + i * 8 + 3] << 0);
-			tmp[4 + i] =
-				 (buf_in[offs_in + i * 8 + 4] << 24) |
-				 (buf_in[offs_in + i * 8 + 5] << 16) |
-				 (buf_in[offs_in + i * 8 + 6] << 8) |
-				 (buf_in[offs_in + i * 8 + 7] << 0);
+			tmp[0 + i] = be32toh(in[i * 2 + 0]);
+			tmp[4 + i] = be32toh(in[i * 2 + 1]);
 		}
 
 		tmp_b[0] = _mm_load_si128((__m128i *)&tmp[0]);
@@ -53,14 +47,8 @@ public:
 		_mm_store_si128((__m128i *)&tmp[4], tmp_b[1]);
 
 		for (int i = 0; i < 4; i++) {
-			buf_out[offs_out + i * 8 + 0] = tmp[0 + i] >> 24;
-			buf_out[offs_out + i * 8 + 1] = tmp[0 + i] >> 16;
-			buf_out[offs_out + i * 8 + 2] = tmp[0 + i] >> 8;
-			buf_out[offs_out + i * 8 + 3] = tmp[0 + i] >> 0;
-			buf_out[offs_out + i * 8 + 4] = tmp[4 + i] >> 24;
-			buf_out[offs_out + i * 8 + 5] = tmp[4 + i] >> 16;
-			buf_out[offs_out + i * 8 + 6] = tmp[4 + i] >> 8;
-			buf_out[offs_out + i * 8 + 7] = tmp[4 + i] >> 0;
+			out[i * 2 + 0] = htobe32(tmp[0 + i]);
+			out[i * 2 + 1] = htobe32(tmp[4 + i]);
 		}
 	}
 
