@@ -424,7 +424,6 @@ int descramble_ts(context& c, packet_ts& ts)
 
 int main(int argc, char *argv[])
 {
-	std::deque<char> buf_ts;
 	std::deque<char> buf_sock;
 	const char *name_in = NULL, *name_out = NULL;
 	const char *hostname = NULL, *servname = NULL;
@@ -433,7 +432,7 @@ int main(int argc, char *argv[])
 	char *buf;
 	struct addrinfo hints;
 	struct addrinfo *resaddr, *rp;
-	ssize_t rsize;
+	ssize_t rsize, pos;
 	size_t cnt;
 	int i, result;
 	static struct context c;
@@ -535,17 +534,8 @@ int main(int argc, char *argv[])
 			break;
 		}
 
-		//Search next sync byte of TS
-		buf_ts.insert(buf_ts.end(), &buf[0], &buf[rsize]);
-		while (buf_ts.size() > 0) {
-			if (buf_ts.front() == 0x47)
-				break;
-			buf_ts.pop_front();
-		}
-
-		while (buf_ts.size() >= SIZE_TS) {
-			bitstream<std::deque<char>::iterator> bs(buf_ts.begin(),
-				0, SIZE_TS);
+		for (pos = 0; pos < rsize; pos += SIZE_TS) {
+			bitstream<char *> bs(&buf[pos], 0, SIZE_TS);
 			packet_ts ts;
 
 			ts.peek(bs);
@@ -554,12 +544,9 @@ int main(int argc, char *argv[])
 				descramble_ts(c, ts);
 				ts.poke(bs);
 
-				buf_sock.insert(buf_sock.end(), buf_ts.begin(),
-					buf_ts.begin() + SIZE_TS);
+				buf_sock.insert(buf_sock.end(), &buf[pos],
+					&buf[pos + SIZE_TS]);
 			}
-
-			buf_ts.erase(buf_ts.begin(),
-				buf_ts.begin() + SIZE_TS);
 		}
 
 		//Send TS
