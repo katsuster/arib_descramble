@@ -37,6 +37,11 @@ public:
 		decmode = en;
 	}
 
+	const uint32_t *get_workkey() const
+	{
+		return workkey;
+	}
+
 	/**
 	 * Initialize decrypt/encrypt data key (Dk) and system key (Sk)
 	 *
