@@ -77,9 +77,9 @@ protected:
 			mlt2_enc8round_sse2(workkey_sse2, blocks);
 	}
 
-	void mlt2_dec8round_sse2(__m128i *key, __m128i *work)
+	void mlt2_dec8round_sse2(const __m128i *key, __m128i *work)
 	{
-		__m128i *partkey;
+		const __m128i *partkey;
 
 		//round 5 to 8
 		partkey = &key[4];
@@ -98,9 +98,9 @@ protected:
 		mlt2_pi1_sse2(partkey, work);
 	}
 
-	void mlt2_enc8round_sse2(__m128i *key, __m128i *work)
+	void mlt2_enc8round_sse2(const __m128i *key, __m128i *work)
 	{
-		__m128i *partkey;
+		const __m128i *partkey;
 
 		//round 1 to 4
 		partkey = &key[0];
@@ -119,7 +119,7 @@ protected:
 		mlt2_pi4_sse2(partkey, work);
 	}
 
-	void mlt2_pi1_sse2(__m128i *partkey, __m128i *work)
+	void mlt2_pi1_sse2(const __m128i *partkey, __m128i *work)
 	{
 		__m128i out[2];
 
@@ -130,7 +130,7 @@ protected:
 		work[1] = out[1];
 	}
 
-	void mlt2_pi2_sse2(__m128i *partkey, __m128i *work)
+	void mlt2_pi2_sse2(const __m128i *partkey, __m128i *work)
 	{
 		__m128i out[2];
 		__m128i x, y, z;
@@ -148,7 +148,7 @@ protected:
 		work[1] = out[1];
 	}
 
-	void mlt2_pi3_sse2(__m128i *partkey, __m128i *work)
+	void mlt2_pi3_sse2(const __m128i *partkey, __m128i *work)
 	{
 		__m128i out[2];
 		__m128i x, y, z, a, b, c;
@@ -169,7 +169,7 @@ protected:
 		work[1] = out[1];
 	}
 
-	void mlt2_pi4_sse2(__m128i *partkey, __m128i *work)
+	void mlt2_pi4_sse2(const __m128i *partkey, __m128i *work)
 	{
 		__m128i out[2];
 		__m128i x, y;

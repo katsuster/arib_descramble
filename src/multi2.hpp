@@ -200,9 +200,9 @@ protected:
 		it1[8] = work[1];
 	}
 
-	void mlt2_dec8round(uint32_t *key, uint32_t *work)
+	void mlt2_dec8round(const uint32_t *key, uint32_t *work)
 	{
-		uint32_t *partkey;
+		const uint32_t *partkey;
 
 		//round 5 to 8
 		partkey = &key[4];
@@ -221,9 +221,9 @@ protected:
 		mlt2_pi1(partkey, work);
 	}
 
-	void mlt2_enc8round(uint32_t *key, uint32_t *work)
+	void mlt2_enc8round(const uint32_t *key, uint32_t *work)
 	{
-		uint32_t *partkey;
+		const uint32_t *partkey;
 
 		//round 1 to 4
 		partkey = &key[0];
@@ -242,7 +242,7 @@ protected:
 		mlt2_pi4(partkey, work);
 	}
 
-	void mlt2_pi1(uint32_t *partkey, uint32_t *work)
+	void mlt2_pi1(const uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 
@@ -253,7 +253,7 @@ protected:
 		work[1] = out[1];
 	}
 
-	void mlt2_pi2(uint32_t *partkey, uint32_t *work)
+	void mlt2_pi2(const uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 		uint32_t x, y, z;
@@ -269,7 +269,7 @@ protected:
 		work[1] = out[1];
 	}
 
-	void mlt2_pi3(uint32_t *partkey, uint32_t *work)
+	void mlt2_pi3(const uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 		uint32_t x, y, z, a, b, c;
@@ -288,7 +288,7 @@ protected:
 		work[1] = out[1];
 	}
 
-	void mlt2_pi4(uint32_t *partkey, uint32_t *work)
+	void mlt2_pi4(const uint32_t *partkey, uint32_t *work)
 	{
 		uint32_t out[2];
 		uint32_t x, y;
