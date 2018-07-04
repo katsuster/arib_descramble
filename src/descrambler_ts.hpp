@@ -170,7 +170,7 @@ public:
 			size_t rem;
 
 			if (len >= DATA_BLK_SIZE * 4) {
-				dec.update4(ts.payload, pos, work_out, 0);
+				dec.update4((uint8_t *)pay, work_out);
 				rem = 4;
 			} else {
 				dec.update(ts.payload, pos, work_out, 0);

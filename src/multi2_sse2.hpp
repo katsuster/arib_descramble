@@ -23,10 +23,10 @@ public:
 		}
 	}
 
-	void update4(uint8_t *buf_in, int offs_in, uint8_t *buf_out, size_t offs_out)
+	void update4(uint8_t *buf_in, uint8_t *buf_out)
 	{
-		uint32_t *in = (uint32_t *)&buf_in[offs_in];
-		uint32_t *out = (uint32_t *)&buf_out[offs_out];
+		uint32_t *in = (uint32_t *)buf_in;
+		uint32_t *out = (uint32_t *)buf_out;
 		uint32_t tmp[8];
 		__m128i tmp_b[2];
 
