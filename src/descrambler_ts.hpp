@@ -141,7 +141,7 @@ public:
 	void descramble(packet_ts& ts)
 	{
 		uint8_t work_reg[DATA_BLK_SIZE];
-		uint8_t work_out[DATA_BLK_SIZE * 4];
+		uint8_t work_out[DATA_BLK_SIZE * 8];
 		uint64_t *wo = (uint64_t *)work_out, *wr = (uint64_t *)work_reg;
 		uint8_t key[ALL_KEY_SIZE];
 		size_t pos, len;
@@ -169,7 +169,10 @@ public:
 			uint64_t *pay = (uint64_t *)&ts.payload[pos];
 			size_t rem;
 
-			if (len >= DATA_BLK_SIZE * 4) {
+			if (len >= DATA_BLK_SIZE * 8) {
+				dec.update8((uint8_t *)pay, work_out);
+				rem = 8;
+			} else if (len >= DATA_BLK_SIZE * 4) {
 				dec.update4((uint8_t *)pay, work_out);
 				rem = 4;
 			} else {

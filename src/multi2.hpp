@@ -93,6 +93,13 @@ public:
 		workkey[7] = intermed1[8];
 	}
 
+	void update8(uint8_t *buf_in, uint8_t *buf_out)
+	{
+		for (int i = 0; i < 2; i++) {
+			update4(&buf_in[i * 32], &buf_out[i * 32]);
+		}
+	}
+
 	void update4(uint8_t *buf_in, uint8_t *buf_out)
 	{
 		for (int i = 0; i < 4; i++) {
