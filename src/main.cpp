@@ -568,28 +568,17 @@ int main(int argc, char *argv[])
 				proc_ts(c, ts);
 				descramble_ts(c, ts);
 				ts.poke(bs);
-
-				buf_sock.insert(buf_sock.end(), &buf[pos],
-					&buf[pos + SIZE_TS]);
 			}
 		}
 
 		//Send TS
-		while (buf_sock.size() >= SIZE_TS_CHUNK) {
-			uint8_t tmp[SIZE_TS_CHUNK];
-
-			for (int i = 0; i < SIZE_TS_CHUNK; i++)
-				tmp[i] = buf_sock[i];
-
+		for (pos = 0; pos < rsize; pos += SIZE_TS_CHUNK) {
 			if (sock != -1)
-				sendto(sock, tmp, SIZE_TS_CHUNK, 0,
+				sendto(sock, &buf[pos], SIZE_TS_CHUNK, 0,
 					rp->ai_addr, rp->ai_addrlen);
 
 			if (fd_out != -1)
-				write(fd_out, tmp, SIZE_TS_CHUNK);
-
-			buf_sock.erase(buf_sock.begin(),
-				buf_sock.begin() + SIZE_TS_CHUNK);
+				write(fd_out, &buf[pos], SIZE_TS_CHUNK);
 		}
 
 		cnt += rsize;
