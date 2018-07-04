@@ -132,13 +132,13 @@ protected:
 	void decrypt_block(uint32_t *blocks)
 	{
 		for (int i = 0; i < round; i += 8)
-			mlt2_dec8round(workkey, blocks);
+			mlt2_dec8round(get_workkey(), blocks);
 	}
 
 	void encrypt_block(uint32_t *blocks)
 	{
 		for (int i = 0; i < round; i += 8)
-			mlt2_enc8round(workkey, blocks);
+			mlt2_enc8round(get_workkey(), blocks);
 	}
 
 	void read_key(uint8_t *key, size_t key_offset, size_t key_len,
