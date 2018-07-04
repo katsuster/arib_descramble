@@ -422,6 +422,31 @@ int descramble_ts(context& c, packet_ts& ts)
 	return 0;
 }
 
+ssize_t readn(int fd, void *buf, size_t count)
+{
+	size_t nleft = count;
+	ssize_t nread;
+	char *ptr = (char *)buf;
+
+	while (nleft > 0) {
+		nread = read(fd, ptr, nleft);
+		if (nread < 0) {
+			if (errno == EINTR)
+				nread = 0;
+			else
+				return -1;
+		} else if (nread == 0) {
+			//EOF
+			break;
+		}
+
+		nleft -= nread;
+		ptr += nread;
+	}
+
+	return (count - nleft);
+}
+
 int main(int argc, char *argv[])
 {
 	std::deque<char> buf_sock;
@@ -524,7 +549,7 @@ int main(int argc, char *argv[])
 	i = 0;
 	printf("\n\n");
 	while (1) {
-		rsize = read(fd_in, buf, bufsize);
+		rsize = readn(fd_in, buf, bufsize);
 		if (rsize == -1) {
 			fprintf(stderr, "Failed to read '%s'\n",
 				name_in);
