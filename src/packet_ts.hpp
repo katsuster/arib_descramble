@@ -41,7 +41,7 @@ public:
 		adaptation_field_length = bs.get_bits(8);
 		if (adaptation_field_length == 0)
 			return;
-		if (adaptation_field_length > bs.remain()) {
+		if (adaptation_field_length > (size_t)bs.remain()) {
 			this->set_error(EINVAL,
 				"adaptation field too large, len:%d, remain:%d",
 				(int)adaptation_field_length,
@@ -94,7 +94,7 @@ public:
 		adaptation_field_extension_length = bs.get_bits(8);
 		if (adaptation_field_extension_length == 0)
 			return;
-		if (adaptation_field_extension_length > bs.remain()) {
+		if (adaptation_field_extension_length > (size_t)bs.remain()) {
 			this->set_error(EINVAL,
 				"adaptation ext field too large, len:%d, remain:%d",
 				(int)adaptation_field_extension_length,

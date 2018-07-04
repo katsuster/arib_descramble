@@ -55,7 +55,7 @@ public:
 		elementary_pid = bs.get_bits(13);
 		bs.skip_bits(4);
 		es_info_length = bs.get_bits(12);
-		if (es_info_length > bs.remain()) {
+		if (es_info_length > (size_t)bs.remain()) {
 			this->set_error(EINVAL,
 				"PMT ES info too large, len:%d, remain:%d",
 				(int)es_info_length,
@@ -215,7 +215,7 @@ public:
 		pcr_pid                = bs.get_bits(13);
 		bs.skip_bits(4);
 		program_info_length    = bs.get_bits(12);
-		if (program_info_length > bs.remain()) {
+		if (program_info_length > (size_t)bs.remain()) {
 			set_error(EINVAL,
 				"PMT program_info too large, len:%d, remain:%d",
 				(int)program_info_length,

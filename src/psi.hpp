@@ -27,7 +27,7 @@ public:
 	void read_stub(bitstream<T>& bs)
 	{
 		pointer_field            = bs.get_bits(8);
-		if (pointer_field > bs.remain()) {
+		if (pointer_field > (size_t)bs.remain()) {
 			set_error(EINVAL,
 				"pointer_field too large, len:%d, remain:%d",
 				(int)pointer_field,
@@ -40,7 +40,7 @@ public:
 		section_syntax_indicator = bs.get_bits(1);
 		bs.skip_bits(3);
 		section_length           = bs.get_bits(12);
-		if (section_length > bs.remain()) {
+		if (section_length > (size_t)bs.remain()) {
 			set_error(EINVAL,
 				"section too large, len:%d, remain:%d",
 				(int)section_length,

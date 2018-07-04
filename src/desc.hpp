@@ -39,7 +39,7 @@ public:
 	{
 		descriptor_tag    = bs.get_bits(8);
 		descriptor_length = bs.get_bits(8);
-		if (descriptor_length > bs.remain()) {
+		if (descriptor_length > (size_t)bs.remain()) {
 			this->set_error(EINVAL,
 				"descriptor too large, len:%d, remain:%d",
 				(int)descriptor_length,
