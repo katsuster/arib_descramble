@@ -426,7 +426,8 @@ int main(int argc, char *argv[])
 {
 	std::deque<char> buf_ts;
 	std::deque<char> buf_sock;
-	const char *name_in, *name_out, *hostname, *servname;
+	const char *name_in = NULL, *name_out = NULL;
+	const char *hostname = NULL, *servname = NULL;
 	int fd_in, fd_out, sock;
 	size_t bufsize;
 	char *buf;
