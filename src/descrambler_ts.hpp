@@ -16,14 +16,10 @@
 #  define multi2_fast multi2
 #endif
 
-#define USE_KEY_NONE    0
-#define USE_KEY_ODD     1
-#define USE_KEY_EVEN    2
-
 class descrambler_ts {
 public:
 	descrambler_ts() :
-		valid_odd(0), valid_even(0), use_key(USE_KEY_NONE)
+		valid_odd(0), valid_even(0)
 	{
 	}
 
@@ -42,7 +38,6 @@ public:
 		memset(data_key_even, 0, DATA_KEY_SIZE);
 		valid_odd = 0;
 		valid_even = 0;
-		use_key = USE_KEY_NONE;
 	}
 
 	int is_valid_odd() const
@@ -92,17 +87,11 @@ public:
 		if (k_odd) {
 			memcpy(data_key_odd, k_odd, DATA_KEY_SIZE);
 			valid_odd = 1;
-
-			if (use_key == USE_KEY_ODD)
-				use_key = USE_KEY_NONE;
 		}
 
 		if (k_even) {
 			memcpy(data_key_even, k_even, DATA_KEY_SIZE);
 			valid_even = 1;
-
-			if (use_key == USE_KEY_EVEN)
-				use_key = USE_KEY_NONE;
 		}
 	}
 
@@ -135,9 +124,6 @@ public:
 		if (ts.transport_scrambling_control != 3)
 			return 0;
 
-		if (use_key == USE_KEY_ODD)
-			return 0;
-
 		return 1;
 	}
 
@@ -147,9 +133,6 @@ public:
 			return 0;
 
 		if (ts.transport_scrambling_control != 2)
-			return 0;
-
-		if (use_key == USE_KEY_EVEN)
 			return 0;
 
 		return 1;
@@ -162,27 +145,19 @@ public:
 		uint64_t *wo = (uint64_t *)work_out, *wr = (uint64_t *)work_reg;
 		uint8_t key[ALL_KEY_SIZE];
 		size_t pos, len;
-		bool f_init = false;
 
-		if (is_odd(ts)) {
+		if (is_odd(ts))
 			memcpy(key, data_key_odd, DATA_KEY_SIZE);
-			use_key = USE_KEY_ODD;
-			f_init = true;
-		} else if (is_even(ts)) {
+		else if (is_even(ts))
 			memcpy(key, data_key_even, DATA_KEY_SIZE);
-			use_key = USE_KEY_EVEN;
-			f_init = true;
-		} else if (use_key == USE_KEY_NONE) {
+		else
 			//data key is not ready, cannot descramble
 			return;
-		}
 
-		if (f_init) {
-			memcpy(key + DATA_KEY_SIZE, system_key, SYSTEM_KEY_SIZE);
+		memcpy(key + DATA_KEY_SIZE, system_key, SYSTEM_KEY_SIZE);
 
-			dec.init(1, key, ALL_KEY_SIZE);
-			enc.init(0, key, ALL_KEY_SIZE);
-		}
+		dec.init(1, key, ALL_KEY_SIZE);
+		enc.init(0, key, ALL_KEY_SIZE);
 
 		memcpy(work_reg, init_vector, DATA_BLK_SIZE);
 
@@ -233,7 +208,6 @@ private:
 
 	multi2_fast dec;
 	multi2_fast enc;
-	int use_key; //USE_KEY_XX
 };
 
 #endif //DESCRAMBLER_TS_HPP__
