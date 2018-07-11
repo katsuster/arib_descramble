@@ -9,9 +9,12 @@
 
 #include "multi2.hpp"
 #include "multi2_sse2.hpp"
+#include "multi2_neon.hpp"
 
 #if defined(__SSE2__)
 #  define multi2_fast multi2_sse2
+#elif defined(__ARM_NEON)
+#  define multi2_fast multi2_neon
 #else
 #  define multi2_fast multi2
 #endif
