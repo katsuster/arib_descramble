@@ -167,7 +167,9 @@ public:
 		adaptation_field_control(0),
 		continuity_counter(0),
 		adapt(),
-		payload_len(0)
+		payload_len(0),
+		light_mode(false),
+		payload_ptr(nullptr)
 	{
 	}
 
@@ -177,13 +179,29 @@ public:
 		return s;
 	}
 
+	bool get_light_mode() const
+	{
+		return light_mode;
+	}
+
+	void set_light_mode(bool m)
+	{
+		light_mode = m;
+	}
+
 	uint8_t *get_payload()
 	{
+		if (get_light_mode())
+			return payload_ptr;
+
 		return payload;
 	}
 
 	const uint8_t *get_payload() const
 	{
+		if (get_light_mode())
+			return payload_ptr;
+
 		return payload;
 	}
 
@@ -221,9 +239,12 @@ public:
 		}
 
 		size_t st = bs.position();
-		for (size_t i = 0; i < payload_len; i++) {
-			payload[i] = bs.buffer()[st + i];
+		if (!get_light_mode()) {
+			for (size_t i = 0; i < payload_len; i++) {
+				payload[i] = bs.buffer()[st + i];
+			}
 		}
+		payload_ptr = (uint8_t *)&bs.buffer()[st];
 	}
 
 	virtual const packet::stub_base__write& get_write_stub() const
@@ -252,9 +273,11 @@ public:
 		if (adaptation_field_control == 2 || adaptation_field_control == 3)
 			adapt.write(bs);
 
-		uint32_t st = 188 - payload_len;
-		for (size_t i = 0; i < payload_len; i++) {
-			bs.buffer()[st + i] = payload[i];
+		if (!get_light_mode()) {
+			uint32_t st = 188 - payload_len;
+			for (size_t i = 0; i < payload_len; i++) {
+				bs.buffer()[st + i] = payload[i];
+			}
 		}
 	}
 
@@ -293,6 +316,8 @@ public:
 
 	uint32_t payload_len;
 private:
+	bool light_mode;
+	uint8_t *payload_ptr;
 	uint8_t payload[188];
 };
 

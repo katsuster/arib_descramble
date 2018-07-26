@@ -562,6 +562,7 @@ int main(int argc, char *argv[])
 		for (pos = 0; pos < rsize; pos += SIZE_TS) {
 			bitstream<char *> bs(&buf[pos], 0, SIZE_TS);
 			packet_ts ts;
+			ts.set_light_mode(true);
 
 			ts.peek(bs);
 			if (ts.pid != 0x1fff) {
