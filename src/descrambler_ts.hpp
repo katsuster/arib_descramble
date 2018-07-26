@@ -169,7 +169,7 @@ public:
 
 		//CBC mode
 		while (len >= DATA_BLK_SIZE) {
-			uint64_t *pay = (uint64_t *)&ts.payload[pos];
+			uint64_t *pay = (uint64_t *)(ts.get_payload() + pos);
 			size_t rem;
 
 			if (len >= DATA_BLK_SIZE * 8) {
@@ -179,7 +179,7 @@ public:
 				dec.update4((uint8_t *)pay, work_out);
 				rem = 4;
 			} else {
-				dec.update(ts.payload, pos, work_out, 0);
+				dec.update(ts.get_payload(), pos, work_out, 0);
 				rem = 1;
 			}
 
@@ -198,7 +198,7 @@ public:
 			enc.update(work_reg, 0, work_out, 0);
 
 			for (int i = 0; len > 0; i++, pos++, len--)
-				ts.payload[pos] ^= work_out[i];
+				ts.get_payload()[pos] ^= work_out[i];
 		}
 
 		ts.transport_scrambling_control = 0;

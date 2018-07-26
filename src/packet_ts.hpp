@@ -177,6 +177,16 @@ public:
 		return s;
 	}
 
+	uint8_t *get_payload()
+	{
+		return payload;
+	}
+
+	const uint8_t *get_payload() const
+	{
+		return payload;
+	}
+
 	template <class T>
 	void read_stub(bitstream<T>& bs)
 	{
@@ -282,6 +292,7 @@ public:
 	ts_adapt adapt;
 
 	uint32_t payload_len;
+private:
 	uint8_t payload[188];
 };
 
@@ -342,8 +353,8 @@ public:
 			buf[target].clear();
 		}
 
-		buf[target].insert(buf[target].end(), &ts.payload[0],
-			&ts.payload[ts.payload_len]);
+		buf[target].insert(buf[target].end(), ts.get_payload(),
+			ts.get_payload() + ts.payload_len);
 	}
 
 protected:
