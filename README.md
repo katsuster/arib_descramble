@@ -6,6 +6,14 @@ This is simple descrambler based on ARIB STD-B25 standard.
 * Decrypt MULTI2
 * Send MPEG2-TS to other host using UDP
 
+# How to build
+
+    $ git clone https://github.com/katsuster/arib_descramble
+    $ cd arib_descramble
+    $ autoreconf -fi
+    $ ./configure
+    $ make
+
 # How to use
 
 Please setup the devices before using this tool.
