@@ -11,8 +11,11 @@ arib_descramble_common_cxxflags = \
 	-std=c++0x
 arib_descramble_common_ldflags = \
 	$(AM_LDFLAGS)
+arib_descramble_common_ldadd = \
+	$(AM_LDADD)
 
 export arib_descramble_common_cppflags
 export arib_descramble_common_cflags
 export arib_descramble_common_cxxflags
 export arib_descramble_common_ldflags
+export arib_descramble_common_ldadd

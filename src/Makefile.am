@@ -9,6 +9,6 @@ arib_descramble_CPPFLAGS = $(arib_descramble_common_cppflags) \
 arib_descramble_CFLAGS   = $(arib_descramble_common_cflags)
 arib_descramble_CXXFLAGS = $(arib_descramble_common_cxxflags)
 arib_descramble_LDFLAGS  = $(arib_descramble_common_ldflags) \
-	-L$(top_srcdir)/src \
-	-lpcsclite \
-	-lstdc++
+	-L$(top_srcdir)/src
+arib_descramble_LDADD = $(arib_descramble_common_ldadd) \
+	-lpcsclite
